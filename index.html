@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HelpNest - Ticketing System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* A simple style override to ensure the layout works well without full JS framework */
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+        /* Style for success/error messages */
+        .feedback-banner {
+            display: none;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 0.5rem;
+            border-left-width: 4px;
+        }
+        .feedback-banner.success {
+            display: block;
+            background-color: #f0fdf4; /* green-50 */
+            border-color: #22c55e; /* green-500 */
+            color: #15803d; /* green-700 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <!-- This div will contain the entire application -->
+    <div id="app-container">
+        <!-- The content will be rendered here by JavaScript -->
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- MOCK DATA (Initial Data) ---
+        const initialData = {
+            agents: [
+              { id: 'agent-1', name: 'Alex Green' },
+              { id: 'agent-2', name: 'Brenda Blue' },
+              { id: 'agent-3', name: 'Charlie Brown' },
+              { id: 'agent-4', name: 'David White' },
+            ],
+            tickets: [
+              { _id: 'TICKET-1', name: 'John Doe', email: 'john.doe@example.com', subject: 'Login Issue', message: 'I cannot log into my account.', status: 'Open', createdAt: '2025-07-08T10:00:00Z', problemType: 'Technical Support', agentId: 'agent-1' },
+              { _id: 'TICKET-2', name: 'Jane Smith', email: 'jane.smith@example.com', subject: 'Billing Question', message: 'I have a question about my last invoice.', status: 'Open', createdAt: '2025-07-08T09:30:00Z', problemType: 'Billing Inquiry', agentId: null },
+              { _id: 'TICKET-3', name: 'Peter Jones', email: 'peter.jones@example.com', subject: 'Feature Request', message: 'It would be great to have a dark mode.', status: 'On hold', createdAt: '2025-07-07T15:00:00Z', problemType: 'Feature Request', agentId: 'agent-2' },
+              { _id: 'TICKET-4', name: 'Maria Garcia', email: 'maria.g@example.com', subject: 'Cannot update profile', message: 'The save button is not working on my profile page.', status: 'Open', createdAt: '2025-07-08T11:00:00Z', problemType: 'Technical Support', agentId: null },
+            ]
+        };
+
+        // --- GLOBAL STATE ---
+        let state = {
+            isAuthenticated: false,
+            isAdminView: false,
+            activePage: 'dashboard',
+            agents: [...initialData.agents],
+            tickets: [...initialData.tickets],
+            filteredTickets: [...initialData.tickets],
+            selectedTicketId: initialData.tickets.length > 0 ? initialData.tickets[0]._id : null,
+            feedback: { type: '', message: '' }, // type can be 'success' or 'error'
+            adminUser: { name: 'Admin User', email: 'admin@example.com' }, // Added admin user state
+            isEditingProfile: false // Added state for profile editing mode
+        };
+
+        // --- ICONS (as functions returning SVG strings) ---
+        const Icons = {
+            Home: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+            Ticket: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+            Book: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>`,
+            App: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-indigo-400"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 12v-2a4 4 0 0 0-4 4v0a4 4 0 0 0 4 4v-2a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2zm0 0v-2a4 4 0 0 1 4 4v0a4 4 0 0 1-4 4v-2a2 2 0 0 0 2-2v0a2 2 0 0 0-2-2z"/></svg>`,
+            Logout: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
+            Plus: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 mr-2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+            Search: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`,
+            Bell: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>`,
+            Folder: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 mr-3 text-indigo-500"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L8.6 3.3A2 2 0 0 0 6.9 2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h16z"/></svg>`,
+            Todo: () => `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
+        };
+
+        // --- HTML TEMPLATE COMPONENTS (as functions returning template strings) ---
+        
+        function SidebarComponent() {
+            const navItems = [
+                { id: 'dashboard', icon: Icons.Home(), label: 'Dashboard' },
+                { id: 'tickets', icon: Icons.Ticket(), label: 'Tickets' },
+                { id: 'knowledgeBase', icon: Icons.Book(), label: 'Knowledge Base' },
+            ];
+            return `
+                <aside class="w-16 md:w-64 bg-slate-800 text-white flex flex-col">
+                    <div class="h-16 flex items-center justify-center md:justify-start md:px-6 border-b border-slate-700">
+                        ${Icons.App()}
+                        <span class="hidden md:inline ml-3 text-xl font-bold">HelpNest</span>
+                    </div>
+                    <nav class="flex-grow pt-4">
+                        <ul>
+                            ${navItems.map(item => `
+                                <li>
+                                    <a href="#" onclick="navigateTo('${item.id}')" class="flex items-center px-5 md:px-6 py-3 my-1 transition-colors duration-200 ${state.activePage === item.id ? 'text-white bg-indigo-600 border-l-4 border-indigo-400' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}">
+                                        ${item.icon}
+                                        <span class="hidden md:inline ml-4">${item.label}</span>
+                                    </a>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </nav>
+                    <div class="p-4 border-t border-slate-700">
+                        <button onclick="handleLogout()" class="w-full bg-slate-700 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center md:justify-start">
+                           ${Icons.Logout()}
+                           <span class="hidden md:inline ml-4">Logout</span>
+                        </button>
+                    </div>
+                </aside>
+            `;
+        }
+
+        function TopBarComponent(title) {
+            const adminInitial = state.adminUser.name.charAt(0).toUpperCase();
+            return `
+                <header class="bg-white shadow-sm p-4 flex justify-between items-center">
+                    <h1 class="text-2xl font-semibold text-gray-800">${title}</h1>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="alert('New button clicked!')" class="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            ${Icons.Plus()}
+                            New
+                        </button>
+                        <button onclick="alert('Search clicked!')" class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700">${Icons.Search()}</button>
+                        <button onclick="alert('Notifications clicked!')" class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700">${Icons.Bell()}</button>
+                        <div class="relative">
+                            <button onclick="toggleProfileDropdown()" class="w-10 h-10 bg-indigo-200 rounded-full flex items-center justify-center text-indigo-700 font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">${adminInitial}</button>
+                            <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20">
+                                <a href="#" onclick="event.preventDefault(); navigateTo('accountSettings')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Account Settings</a>
+                                <a href="#" onclick="event.preventDefault(); navigateTo('about')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">About</a>
+                                <div class="border-t border-gray-100 my-1"></div>
+                                <a href="#" onclick="event.preventDefault(); handleLogout()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            `;
+        }
+
+        function DashboardPageComponent() {
+            const stats = {
+                unresolved: state.tickets.filter(t => t.status !== 'Closed').length,
+                open: state.tickets.filter(t => t.status === 'Open').length,
+                onHold: state.tickets.filter(t => t.status === 'On hold').length,
+                unassigned: state.tickets.filter(t => !t.agentId).length,
+            };
+            const StatCard = (title, value) => `
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-gray-500 text-sm font-medium">${title}</h3>
+                    <p class="text-3xl font-bold text-gray-800 mt-2">${value}</p>
+                </div>
+            `;
+            return `
+                <div id="dashboard" class="page">
+                    ${TopBarComponent('Dashboard')}
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            ${StatCard('Unresolved', stats.unresolved)}
+                            ${StatCard('Open', stats.open)}
+                            ${StatCard('On hold', stats.onHold)}
+                            ${StatCard('Unassigned', stats.unassigned)}
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                                <h3 class="font-semibold text-lg">Unresolved tickets</h3>
+                                <p class="text-sm text-gray-500">Across helpdesk</p>
+                                <div class="mt-4">
+                                    <div class="flex justify-between py-3 border-b"><span class="text-gray-600">Group</span><span class="text-gray-600">Open</span></div>
+                                    <div class="flex justify-between py-3"><span class="font-medium text-gray-800">Unassigned</span><span class="font-medium text-gray-800">${stats.unassigned}</span></div>
+                                </div>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                                <h3 class="font-semibold text-lg">To-do</h3>
+                                <div class="text-center py-10">
+                                    <div class="w-16 h-16 bg-gray-100 rounded-lg mx-auto flex items-center justify-center">${Icons.Todo()}</div>
+                                    <p class="mt-4 text-gray-500">You have no tasks to do!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function TicketsPageComponent() {
+            const selectedTicket = state.tickets.find(t => t._id === state.selectedTicketId);
+
+            const TicketListItem = (ticket) => `
+                <div onclick="selectTicket('${ticket._id}')" class="p-4 cursor-pointer border-b ${state.selectedTicketId === ticket._id ? 'bg-indigo-50' : 'hover:bg-gray-50'}">
+                    <p class="font-semibold text-gray-800 truncate">${ticket.subject}</p>
+                    <p class="text-sm text-gray-600">#${ticket._id.split('-')[1]} • ${ticket.name}</p>
+                    <p class="text-xs text-gray-400 mt-1">${new Date(ticket.createdAt).toLocaleString()}</p>
+                </div>
+            `;
+            
+            const TicketDetails = (ticket) => {
+                if (!ticket) return `<div class="flex items-center justify-center h-full"><p class="text-gray-500">Select a ticket to view details</p></div>`;
+                const agentName = state.agents.find(a => a.id === ticket.agentId)?.name || 'Unassigned';
+                return `
+                    <div class="p-6 h-full flex flex-col">
+                        <div class="flex-shrink-0">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-4">${ticket.subject}</h3>
+                            <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-6 pb-4 border-b">
+                                <p><strong>From:</strong> ${ticket.name} &lt;${ticket.email}&gt;</p>
+                                <p><strong>Ticket ID:</strong> ${ticket._id}</p>
+                                <p><strong>Created:</strong> ${new Date(ticket.createdAt).toLocaleString()}</p>
+                                <p><strong>Problem Type:</strong> ${ticket.problemType}</p>
+                            </div>
+                        </div>
+                        <div class="mb-6 flex-grow overflow-y-auto bg-white p-4 rounded-md border">
+                            <p class="text-gray-800 whitespace-pre-wrap">${ticket.message}</p>
+                        </div>
+                        <div class="flex-shrink-0 grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-lg border">
+                            <div>
+                                <label for="status" class="text-sm font-medium text-gray-700 mb-1 block">Status</label>
+                                <select id="status" onchange="handleStatusChange('${ticket._id}', this.value)" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                    <option ${ticket.status === 'Open' ? 'selected' : ''}>Open</option>
+                                    <option ${ticket.status === 'On hold' ? 'selected' : ''}>On hold</option>
+                                    <option ${ticket.status === 'Closed' ? 'selected' : ''}>Closed</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="agent" class="text-sm font-medium text-gray-700 mb-1 block">Agent</label>
+                                <select id="agent" onchange="handleAgentChange('${ticket._id}', this.value)" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                    <option value="">Unassigned</option>
+                                    ${state.agents.map(agent => `<option value="${agent.id}" ${ticket.agentId === agent.id ? 'selected' : ''}>${agent.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700 mb-1 block">Agent Name</label>
+                                <div class="w-full px-3 py-2 bg-gray-100 rounded-lg">${agentName}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            return `
+                <div id="tickets" class="page">
+                    ${TopBarComponent('Tickets')}
+                    <div class="flex h-[calc(100vh-65px)]">
+                        <div class="w-1/3 bg-white border-r overflow-y-auto flex flex-col">
+                            <div class="p-4 border-b">
+                                <input type="text" oninput="handleSearch(this.value)" placeholder="Search tickets..." class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            </div>
+                            <div class="flex-grow overflow-y-auto">${state.filteredTickets.map(TicketListItem).join('')}</div>
+                        </div>
+                        <div class="w-2/3 bg-gray-50 overflow-y-auto" id="ticket-details-panel">
+                            ${TicketDetails(selectedTicket)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function KnowledgeBasePageComponent() {
+            const categories = [{ name: 'General', articles: [{name: 'FAQ', count: 0}, {name: 'Getting Started', count: 0}, {name: 'Payments', count: 0}] }];
+            return `
+                <div id="knowledgeBase" class="page">
+                    ${TopBarComponent('Knowledge Base')}
+                    <div class="p-6">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border">
+                            <div class="flex justify-between items-center mb-6">
+                                <div class="relative w-full max-w-lg">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400">${Icons.Search()}</span>
+                                    <input type="text" placeholder="Search articles" class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                                </div>
+                                <div>
+                                    <button class="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 mr-2">Manage</button>
+                                    <button class="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 flex items-center">${Icons.Plus()} New article</button>
+                                </div>
+                            </div>
+                            <div>
+                                ${categories.map(cat => `
+                                    <div class="border rounded-lg p-6">
+                                        <h3 class="text-lg font-semibold text-gray-800 flex items-center">${Icons.Folder()} ${cat.name}</h3>
+                                        <div class="mt-4 space-y-3 pl-9">
+                                            ${cat.articles.map(article => `
+                                                <div class="flex justify-between items-center">
+                                                    <span class="text-indigo-600 hover:underline cursor-pointer">${article.name}</span>
+                                                    <span class="text-gray-500">${article.count}</span>
+                                                </div>
+                                            `).join('')}
+                                            <a href="#" class="text-indigo-600 hover:underline text-sm font-medium">View all ${cat.articles.length} folders</a>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function AccountSettingsPageComponent() {
+            const feedback = state.feedback.message ? `<div class="feedback-banner ${state.feedback.type}"><p class="font-bold">${state.feedback.type === 'success' ? 'Success!' : 'Error!'}</p><p>${state.feedback.message}</p></div>` : '';
+            let content;
+
+            if (state.isEditingProfile) {
+                content = `
+                    <form onsubmit="handleProfileUpdate(event)">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="admin-name" class="block text-sm font-medium text-gray-700">Name</label>
+                                <input type="text" id="admin-name" name="name" value="${state.adminUser.name}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                            </div>
+                            <div>
+                                <label for="admin-email" class="block text-sm font-medium text-gray-700">Email</label>
+                                <input type="email" id="admin-email" name="email" value="${state.adminUser.email}" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                            </div>
+                        </div>
+                        <div class="mt-6 flex items-center space-x-4">
+                            <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Save Changes</button>
+                            <button type="button" onclick="toggleEditProfile(false)" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
+                        </div>
+                    </form>
+                `;
+            } else {
+                content = `
+                    <p class="mb-2"><strong>Name:</strong> ${state.adminUser.name}</p>
+                    <p class="mb-4"><strong>Email:</strong> ${state.adminUser.email}</p>
+                    <button onclick="toggleEditProfile(true)" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Edit Profile</button>
+                `;
+            }
+
+            return `
+                <div id="accountSettings" class="page">
+                    ${TopBarComponent('Account Settings')}
+                    <div class="p-6">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border">
+                            <h2 class="text-2xl font-bold mb-4">Account Information</h2>
+                            ${feedback}
+                            ${content}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function AboutPageComponent() {
+            return `
+                <div id="about" class="page">
+                    ${TopBarComponent('About HelpNest')}
+                    <div class="p-6">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border">
+                            <h2 class="text-2xl font-bold mb-4">HelpNest Ticketing System</h2>
+                            <p>Version 1.0.0</p>
+                            <p class="mt-2">A simple and effective solution for managing customer support tickets.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function AdminLayout() {
+            return `
+                <div class="flex h-screen bg-gray-100">
+                    ${SidebarComponent()}
+                    <main class="flex-1 flex flex-col overflow-hidden">
+                        ${DashboardPageComponent()}
+                        ${TicketsPageComponent()}
+                        ${KnowledgeBasePageComponent()}
+                        ${AccountSettingsPageComponent()}
+                        ${AboutPageComponent()}
+                    </main>
+                </div>
+            `;
+        }
+
+        function PublicPageComponent() {
+            const feedback = state.feedback.message ? `<div class="feedback-banner ${state.feedback.type}"><p class="font-bold">${state.feedback.type === 'success' ? 'Success!' : 'Error!'}</p><p>${state.feedback.message}</p></div>` : '';
+            return `
+                <div class="bg-gray-100 min-h-screen">
+                    <header class="bg-white shadow-sm absolute top-0 left-0 right-0">
+                        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                            <div class="text-2xl font-bold text-gray-800 flex items-center">
+                                <span class="w-8 h-8 mr-2 text-indigo-600">${Icons.App()}</span>
+                                HelpNest
+                            </div>
+                            <button onclick="showAdminView()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">Admin Login</button>
+                        </div>
+                    </header>
+                    <div class="flex items-center justify-center h-screen">
+                        <div class="text-center">
+                            <h1 class="text-4xl font-bold text-gray-800 mb-4">Welcome to HelpNest</h1>
+                            <p class="text-lg text-gray-600 mb-8">Your one-stop support solution.</p>
+                            <div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-lg text-left">
+                                <h2 class="text-2xl font-bold text-gray-800 mb-6">Submit a Support Ticket</h2>
+                                ${feedback}
+                                <form id="ticket-form" onsubmit="handleTicketSubmit(event)">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                                        <div><label class="block text-gray-700 text-sm font-semibold mb-2">Full Name</label><input name="name" type="text" class="w-full px-4 py-2 border rounded-lg" required /></div>
+                                        <div><label class="block text-gray-700 text-sm font-semibold mb-2">Email Address</label><input name="email" type="email" class="w-full px-4 py-2 border rounded-lg" required /></div>
+                                    </div>
+                                    <div class="mb-4"><label class="block text-gray-700 text-sm font-semibold mb-2">Subject</label><input name="subject" type="text" class="w-full px-4 py-2 border rounded-lg" required /></div>
+                                    <div class="mb-4">
+                                        <label class="block text-gray-700 text-sm font-semibold mb-2">Type of Problem</label>
+                                        <select name="problemType" class="w-full px-4 py-2 border rounded-lg bg-white" required><option value="" disabled selected>Select a category...</option><option>Technical Support</option><option>Billing Inquiry</option><option>Feature Request</option><option>General Question</option></select>
+                                    </div>
+                                    <div class="mb-6"><label class="block text-gray-700 text-sm font-semibold mb-2">Message</label><textarea name="message" rows="5" class="w-full px-4 py-2 border rounded-lg" required></textarea></div>
+                                    <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700">Submit Ticket</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function LoginPageComponent() {
+            return `
+                <div class="min-h-screen bg-slate-800 flex flex-col justify-center items-center p-4">
+                    <div class="text-center mb-8">
+                        <span class="text-indigo-400">${Icons.App()}</span>
+                        <h1 class="text-4xl font-bold text-white mt-4">HelpNest</h1>
+                    </div>
+                    <div class="max-w-sm w-full bg-white p-8 rounded-lg shadow-lg">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Admin Login</h2>
+                        <form onsubmit="event.preventDefault(); handleLogin();">
+                            <div class="mb-6"><label class="block text-gray-700 font-semibold mb-2">Username</label><input type="text" id="username" value="Admin" class="w-full px-4 py-2 border rounded-lg" required /></div>
+                            <div class="mb-6"><label class="block text-gray-700 font-semibold mb-2">Password</label><input type="password" id="password" value="Admin@123" class="w-full px-4 py-2 border rounded-lg" required /></div>
+                            <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700">Login</button>
+                        </form>
+                    </div>
+                    <button onclick="showPublicView()" class="mt-6 text-indigo-300 hover:text-white">Back to public ticket submission</button>
+                </div>
+            `;
+        }
+
+        // --- RENDER & EVENT HANDLER LOGIC ---
+        const appContainer = document.getElementById('app-container');
+
+        function render() {
+            // Before rendering, clear any old feedback messages
+            if (state.isAdminView && state.isAuthenticated && state.activePage !== 'accountSettings') {
+                 state.feedback = { type: '', message: '' };
+            }
+
+            if (!state.isAdminView) {
+                appContainer.innerHTML = PublicPageComponent();
+            } else {
+                if (!state.isAuthenticated) {
+                    appContainer.innerHTML = LoginPageComponent();
+                } else {
+                    appContainer.innerHTML = AdminLayout();
+                    // Make the current page visible
+                    const allPages = document.querySelectorAll('.page');
+                    allPages.forEach(p => p.classList.remove('active'));
+                    document.getElementById(state.activePage)?.classList.add('active');
+                }
+            }
+        }
+
+        // Event Handlers
+        function navigateTo(pageId) {
+            state.activePage = pageId;
+            state.isEditingProfile = false; // Reset editing mode when navigating away
+            const dropdown = document.getElementById('profile-dropdown');
+            if (dropdown) {
+                dropdown.classList.add('hidden');
+            }
+            render();
+        }
+        
+        function selectTicket(ticketId) {
+            state.selectedTicketId = ticketId;
+            navigateTo('tickets');
+        }
+
+        function handleLogin() {
+            // Mock login logic
+            const username = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            if (username === 'Admin' && pass === 'Admin@123') {
+                state.isAuthenticated = true;
+                state.isAdminView = true;
+                state.filteredTickets = [...state.tickets]; // Reset filter on login
+                render();
+            } else {
+                alert('Invalid credentials!');
+            }
+        }
+        
+        function handleTicketSubmit(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const newTicket = {
+                _id: `TICKET-${Date.now()}`,
+                name: formData.get('name'),
+                email: formData.get('email'),
+                subject: formData.get('subject'),
+                message: formData.get('message'),
+                problemType: formData.get('problemType'),
+                status: 'Open',
+                agentId: null,
+                createdAt: new Date().toISOString(),
+            };
+            // Add the new ticket to the start of the main tickets array
+            state.tickets.unshift(newTicket);
+            state.filteredTickets.unshift(newTicket);
+            
+            // Set feedback message
+            state.feedback = { type: 'success', message: `Your ticket (${newTicket._id}) has been submitted successfully!` };
+            
+            // Reset the form and re-render the public page to show the message
+            form.reset();
+            render();
+        }
+
+        function handleLogout() {
+            state.isAuthenticated = false;
+            state.isAdminView = false;
+            render();
+        }
+
+        function showAdminView() {
+            state.isAdminView = true;
+            render();
+        }
+
+        function showPublicView() {
+            state.isAdminView = false;
+            render();
+        }
+
+        function toggleProfileDropdown() {
+            const dropdown = document.getElementById('profile-dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+            }
+        }
+
+        function toggleEditProfile(isEditing) {
+            state.isEditingProfile = isEditing;
+            render();
+        }
+
+        function handleProfileUpdate(event) {
+            event.preventDefault();
+            const newName = document.getElementById('admin-name').value;
+            const newEmail = document.getElementById('admin-email').value;
+            
+            state.adminUser.name = newName;
+            state.adminUser.email = newEmail;
+            
+            state.isEditingProfile = false;
+            state.feedback = { type: 'success', message: 'Profile updated successfully!' };
+            render();
+        }
+
+        function handleSearch(query) {
+            const lowerCaseQuery = query.toLowerCase();
+            state.filteredTickets = state.tickets.filter(ticket => 
+                ticket.subject.toLowerCase().includes(lowerCaseQuery) ||
+                ticket.name.toLowerCase().includes(lowerCaseQuery) ||
+                ticket.email.toLowerCase().includes(lowerCaseQuery)
+            );
+            render();
+        }
+
+        function handleStatusChange(ticketId, newStatus) {
+            const ticket = state.tickets.find(t => t._id === ticketId);
+            if (ticket) {
+                ticket.status = newStatus;
+                render();
+            }
+        }
+
+        function handleAgentChange(ticketId, newAgentId) {
+            const ticket = state.tickets.find(t => t._id === ticketId);
+            if (ticket) {
+                ticket.agentId = newAgentId || null;
+                render();
+            }
+        }
+
+        // Close dropdown if clicked outside
+        window.addEventListener('click', function(e) {
+            const profileButton = e.target.closest('.relative > button');
+            const dropdown = document.getElementById('profile-dropdown');
+            
+            if (dropdown && !dropdown.classList.contains('hidden') && !profileButton) {
+                if (!dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            }
+        });
+        
+        // Initial Render
+        render();
+
+    </script>
+
+</body>
+</html>
