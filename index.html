@@ -47,10 +47,10 @@
               { id: 'agent-4', name: 'David White' },
             ],
             tickets: [
-              { _id: 'TICKET-1', name: 'John Doe', email: 'john.doe@example.com', subject: 'Login Issue', message: 'I cannot log into my account.', status: 'Open', createdAt: '2025-07-08T10:00:00Z', problemType: 'Technical Support', agentId: 'agent-1' },
-              { _id: 'TICKET-2', name: 'Jane Smith', email: 'jane.smith@example.com', subject: 'Billing Question', message: 'I have a question about my last invoice.', status: 'Open', createdAt: '2025-07-08T09:30:00Z', problemType: 'Billing Inquiry', agentId: null },
-              { _id: 'TICKET-3', name: 'Peter Jones', email: 'peter.jones@example.com', subject: 'Feature Request', message: 'It would be great to have a dark mode.', status: 'On hold', createdAt: '2025-07-07T15:00:00Z', problemType: 'Feature Request', agentId: 'agent-2' },
-              { _id: 'TICKET-4', name: 'Maria Garcia', email: 'maria.g@example.com', subject: 'Cannot update profile', message: 'The save button is not working on my profile page.', status: 'Open', createdAt: '2025-07-08T11:00:00Z', problemType: 'Technical Support', agentId: null },
+              { _id: 'TICKET-1', name: 'John Doe', email: 'john.doe@example.com', subject: 'Login Issue', message: 'I cannot log into my account.', status: 'Open', priority: 'High', createdAt: '2025-07-08T10:00:00Z', problemType: 'Technical Support', agentId: 'agent-1', internalNotes: [{author: 'Alex Green', note: 'User seems to have forgotten their password multiple times. Sent a reset link.'}], attachments: ['login_error.png'] },
+              { _id: 'TICKET-2', name: 'Jane Smith', email: 'jane.smith@example.com', subject: 'Billing Question', message: 'I have a question about my last invoice.', status: 'Open', priority: 'Medium', createdAt: '2025-07-08T09:30:00Z', problemType: 'Billing Inquiry', agentId: null, internalNotes: [], attachments: [] },
+              { _id: 'TICKET-3', name: 'Peter Jones', email: 'peter.jones@example.com', subject: 'Feature Request', message: 'It would be great to have a dark mode.', status: 'On hold', priority: 'Low', createdAt: '2025-07-07T15:00:00Z', problemType: 'Feature Request', agentId: 'agent-2', internalNotes: [], attachments: [] },
+              { _id: 'TICKET-4', name: 'Maria Garcia', email: 'maria.g@example.com', subject: 'Cannot update profile', message: 'The save button is not working on my profile page.', status: 'Open', priority: 'High', createdAt: '2025-07-08T11:00:00Z', problemType: 'Technical Support', agentId: null, internalNotes: [], attachments: [] },
             ]
         };
 
@@ -65,7 +65,15 @@
             selectedTicketId: initialData.tickets.length > 0 ? initialData.tickets[0]._id : null,
             feedback: { type: '', message: '' }, // type can be 'success' or 'error'
             adminUser: { name: 'Admin User', email: 'admin@example.com' }, // Added admin user state
-            isEditingProfile: false // Added state for profile editing mode
+            isEditingProfile: false, // Added state for profile editing mode
+            ticketView: 'list', // 'list' or 'details' for mobile view
+            searchQuery: '', // To hold the search input value
+            notifications: [],
+            unreadNotificationCount: 0,
+            cannedResponses: [
+                { title: 'Password Reset', text: 'Hello,\n\nTo reset your password, please follow this link: [LINK]\n\nRegards,\nSupport Team' },
+                { title: 'Billing Inquiry', text: 'Hello,\n\nThank you for contacting us about your bill. Could you please provide the invoice number so we can look into it for you?\n\nRegards,\nSupport Team' }
+            ]
         };
 
         // --- ICONS (as functions returning SVG strings) ---
@@ -73,6 +81,7 @@
             Home: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
             Ticket: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
             Book: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>`,
+            Analytics: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>`,
             App: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-indigo-400"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 12v-2a4 4 0 0 0-4 4v0a4 4 0 0 0 4 4v-2a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2zm0 0v-2a4 4 0 0 1 4 4v0a4 4 0 0 1-4 4v-2a2 2 0 0 0 2-2v0a2 2 0 0 0-2-2z"/></svg>`,
             Logout: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`,
             Plus: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 mr-2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
@@ -88,6 +97,7 @@
             const navItems = [
                 { id: 'dashboard', icon: Icons.Home(), label: 'Dashboard' },
                 { id: 'tickets', icon: Icons.Ticket(), label: 'Tickets' },
+                { id: 'analytics', icon: Icons.Analytics(), label: 'Analytics' },
                 { id: 'knowledgeBase', icon: Icons.Book(), label: 'Knowledge Base' },
             ];
             return `
@@ -120,17 +130,41 @@
 
         function TopBarComponent(title) {
             const adminInitial = state.adminUser.name.charAt(0).toUpperCase();
+            const notificationBadge = state.unreadNotificationCount > 0 
+                ? `<span id="notification-badge" class="absolute top-0 right-0 block h-2 w-2 rounded-full ring-2 ring-white bg-red-500"></span>` 
+                : '';
+
+            const notificationList = state.notifications.length > 0 
+                ? state.notifications.map(n => `<a href="#" onclick="navigateToTicket('${n.ticketId}')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">${n.message}</a>`).join('')
+                : `<p class="px-4 py-2 text-sm text-gray-500">No new notifications.</p>`;
+
             return `
                 <header class="bg-white shadow-sm p-4 flex justify-between items-center">
                     <h1 class="text-2xl font-semibold text-gray-800">${title}</h1>
                     <div class="flex items-center space-x-4">
-                        <button onclick="alert('New button clicked!')" class="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-                            ${Icons.Plus()}
-                            New
-                        </button>
+                        <div id="new-button-wrapper" class="relative">
+                            <button onclick="toggleNewDropdown()" class="hidden sm:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                                ${Icons.Plus()}
+                                New
+                            </button>
+                            <div id="new-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20">
+                                <a href="#" onclick="alert('New Ticket clicked!')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">New Ticket</a>
+                                <a href="#" onclick="alert('New Contact clicked!')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">New Contact</a>
+                                <a href="#" onclick="alert('New Company clicked!')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">New Company</a>
+                            </div>
+                        </div>
                         <button onclick="alert('Search clicked!')" class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700">${Icons.Search()}</button>
-                        <button onclick="alert('Notifications clicked!')" class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700">${Icons.Bell()}</button>
-                        <div class="relative">
+                        <div id="notification-button-wrapper" class="relative">
+                            <button onclick="toggleNotificationDropdown()" class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 relative">
+                                ${Icons.Bell()}
+                                ${notificationBadge}
+                            </button>
+                            <div id="notification-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-20">
+                                <div class="font-bold px-4 py-2 border-b">Notifications</div>
+                                ${notificationList}
+                            </div>
+                        </div>
+                        <div id="profile-button-wrapper" class="relative">
                             <button onclick="toggleProfileDropdown()" class="w-10 h-10 bg-indigo-200 rounded-full flex items-center justify-center text-indigo-700 font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">${adminInitial}</button>
                             <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20">
                                 <a href="#" onclick="event.preventDefault(); navigateTo('accountSettings')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Account Settings</a>
@@ -191,39 +225,58 @@
 
         function TicketsPageComponent() {
             const selectedTicket = state.tickets.find(t => t._id === state.selectedTicketId);
+            const priorityColors = { Low: 'bg-gray-400', Medium: 'bg-yellow-400', High: 'bg-orange-500', Urgent: 'bg-red-600' };
 
             const TicketListItem = (ticket) => `
                 <div onclick="selectTicket('${ticket._id}')" class="p-4 cursor-pointer border-b ${state.selectedTicketId === ticket._id ? 'bg-indigo-50' : 'hover:bg-gray-50'}">
-                    <p class="font-semibold text-gray-800 truncate">${ticket.subject}</p>
+                    <div class="flex justify-between items-start">
+                        <p class="font-semibold text-gray-800 truncate pr-2">${ticket.subject}</p>
+                        <span class="w-3 h-3 rounded-full flex-shrink-0 ${priorityColors[ticket.priority]}" title="${ticket.priority} priority"></span>
+                    </div>
                     <p class="text-sm text-gray-600">#${ticket._id.split('-')[1]} • ${ticket.name}</p>
                     <p class="text-xs text-gray-400 mt-1">${new Date(ticket.createdAt).toLocaleString()}</p>
                 </div>
             `;
             
             const TicketDetails = (ticket) => {
-                if (!ticket) return `<div class="flex items-center justify-center h-full"><p class="text-gray-500">Select a ticket to view details</p></div>`;
+                if (!ticket) {
+                    return `<div class="hidden md:flex items-center justify-center h-full"><p class="text-gray-500">Select a ticket to view details</p></div>`;
+                }
                 const agentName = state.agents.find(a => a.id === ticket.agentId)?.name || 'Unassigned';
                 return `
                     <div class="p-6 h-full flex flex-col">
                         <div class="flex-shrink-0">
+                            <button onclick="showTicketList()" class="md:hidden mb-4 inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                &larr; Back to list
+                            </button>
                             <h3 class="text-2xl font-bold text-gray-800 mb-4">${ticket.subject}</h3>
-                            <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-6 pb-4 border-b">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600 mb-6 pb-4 border-b">
                                 <p><strong>From:</strong> ${ticket.name} &lt;${ticket.email}&gt;</p>
                                 <p><strong>Ticket ID:</strong> ${ticket._id}</p>
                                 <p><strong>Created:</strong> ${new Date(ticket.createdAt).toLocaleString()}</p>
                                 <p><strong>Problem Type:</strong> ${ticket.problemType}</p>
+                                <p><strong>Attachments:</strong> ${ticket.attachments.length > 0 ? ticket.attachments.join(', ') : 'None'}</p>
                             </div>
                         </div>
                         <div class="mb-6 flex-grow overflow-y-auto bg-white p-4 rounded-md border">
                             <p class="text-gray-800 whitespace-pre-wrap">${ticket.message}</p>
                         </div>
-                        <div class="flex-shrink-0 grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-4 rounded-lg border">
+                        <div class="flex-shrink-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-white p-4 rounded-lg border">
                             <div>
                                 <label for="status" class="text-sm font-medium text-gray-700 mb-1 block">Status</label>
                                 <select id="status" onchange="handleStatusChange('${ticket._id}', this.value)" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
                                     <option ${ticket.status === 'Open' ? 'selected' : ''}>Open</option>
                                     <option ${ticket.status === 'On hold' ? 'selected' : ''}>On hold</option>
                                     <option ${ticket.status === 'Closed' ? 'selected' : ''}>Closed</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="priority" class="text-sm font-medium text-gray-700 mb-1 block">Priority</label>
+                                <select id="priority" onchange="handlePriorityChange('${ticket._id}', this.value)" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                    <option ${ticket.priority === 'Low' ? 'selected' : ''}>Low</option>
+                                    <option ${ticket.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                                    <option ${ticket.priority === 'High' ? 'selected' : ''}>High</option>
+                                    <option ${ticket.priority === 'Urgent' ? 'selected' : ''}>Urgent</option>
                                 </select>
                             </div>
                             <div>
@@ -238,6 +291,28 @@
                                 <div class="w-full px-3 py-2 bg-gray-100 rounded-lg">${agentName}</div>
                             </div>
                         </div>
+                        <div class="mt-4 bg-white p-4 rounded-lg border">
+                            <h4 class="font-semibold mb-2">Internal Notes</h4>
+                            <div class="space-y-2 mb-4 max-h-32 overflow-y-auto">
+                                ${ticket.internalNotes.length > 0 ? ticket.internalNotes.map(note => `<div class="text-sm bg-yellow-50 p-2 rounded-md"><p>${note.note}</p><p class="text-xs text-gray-500 mt-1">- ${note.author}</p></div>`).join('') : '<p class="text-sm text-gray-500">No internal notes.</p>'}
+                            </div>
+                            <form onsubmit="handleAddInternalNote(event, '${ticket._id}')">
+                                <textarea name="internalNote" class="w-full px-3 py-2 border rounded-lg" placeholder="Add a private note..."></textarea>
+                                <button type="submit" class="mt-2 px-3 py-1 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700">Add Note</button>
+                            </form>
+                        </div>
+                        <div class="mt-4 bg-white p-4 rounded-lg border">
+                             <h4 class="font-semibold mb-2">Reply to Customer</h4>
+                             <div class="mb-2">
+                                <label for="canned-response" class="text-sm font-medium">Insert Canned Response:</label>
+                                <select id="canned-response" onchange="handleInsertCannedResponse(this.value)" class="ml-2 border rounded-md p-1 text-sm">
+                                    <option value="">Select a template...</option>
+                                    ${state.cannedResponses.map((resp, index) => `<option value="${index}">${resp.title}</option>`).join('')}
+                                </select>
+                             </div>
+                             <textarea id="reply-textarea" rows="5" class="w-full px-3 py-2 border rounded-lg" placeholder="Type your reply..."></textarea>
+                             <button class="mt-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Send Reply</button>
+                        </div>
                     </div>
                 `;
             };
@@ -246,13 +321,13 @@
                 <div id="tickets" class="page">
                     ${TopBarComponent('Tickets')}
                     <div class="flex h-[calc(100vh-65px)]">
-                        <div class="w-1/3 bg-white border-r overflow-y-auto flex flex-col">
+                        <div class="w-full md:w-1/3 bg-white border-r overflow-y-auto flex-col ${state.ticketView === 'list' ? 'flex' : 'hidden md:flex'}">
                             <div class="p-4 border-b">
-                                <input type="text" oninput="handleSearch(this.value)" placeholder="Search tickets..." class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                <input type="text" oninput="handleSearch(this.value)" value="${state.searchQuery}" placeholder="Search tickets..." class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                             </div>
                             <div class="flex-grow overflow-y-auto">${state.filteredTickets.map(TicketListItem).join('')}</div>
                         </div>
-                        <div class="w-2/3 bg-gray-50 overflow-y-auto" id="ticket-details-panel">
+                        <div class="w-full md:w-2/3 bg-gray-50 overflow-y-auto ${state.ticketView === 'details' ? 'block' : 'hidden md:block'}" id="ticket-details-panel">
                             ${TicketDetails(selectedTicket)}
                         </div>
                     </div>
@@ -260,6 +335,57 @@
             `;
         }
         
+        function AnalyticsPageComponent() {
+            const totalTickets = state.tickets.length;
+            const openCount = state.tickets.filter(t => t.status === 'Open').length;
+            const onHoldCount = state.tickets.filter(t => t.status === 'On hold').length;
+            const closedCount = state.tickets.filter(t => t.status === 'Closed').length;
+
+            const lowPriority = state.tickets.filter(t => t.priority === 'Low').length;
+            const mediumPriority = state.tickets.filter(t => t.priority === 'Medium').length;
+            const highPriority = state.tickets.filter(t => t.priority === 'High').length;
+            const urgentPriority = state.tickets.filter(t => t.priority === 'Urgent').length;
+
+            const agentWorkload = state.agents.map(agent => {
+                const count = state.tickets.filter(t => t.agentId === agent.id).length;
+                return { name: agent.name, count };
+            });
+
+            return `
+                <div id="analytics" class="page">
+                    ${TopBarComponent('Analytics')}
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                                <h3 class="font-semibold text-lg">Tickets by Status</h3>
+                                <div class="mt-4 space-y-2">
+                                    <p><strong>Total:</strong> ${totalTickets}</p>
+                                    <p class="text-green-600"><strong>Open:</strong> ${openCount}</p>
+                                    <p class="text-yellow-600"><strong>On Hold:</strong> ${onHoldCount}</p>
+                                    <p class="text-gray-600"><strong>Closed:</strong> ${closedCount}</p>
+                                </div>
+                            </div>
+                             <div class="bg-white p-6 rounded-lg shadow-sm border">
+                                <h3 class="font-semibold text-lg">Tickets by Priority</h3>
+                                <div class="mt-4 space-y-2">
+                                    <p class="text-gray-600"><strong>Low:</strong> ${lowPriority}</p>
+                                    <p class="text-yellow-600"><strong>Medium:</strong> ${mediumPriority}</p>
+                                    <p class="text-orange-600"><strong>High:</strong> ${highPriority}</p>
+                                    <p class="text-red-600"><strong>Urgent:</strong> ${urgentPriority}</p>
+                                </div>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                                <h3 class="font-semibold text-lg">Agent Workload</h3>
+                                <div class="mt-4 space-y-2">
+                                    ${agentWorkload.map(agent => `<p><strong>${agent.name}:</strong> ${agent.count} tickets</p>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function KnowledgeBasePageComponent() {
             const categories = [{ name: 'General', articles: [{name: 'FAQ', count: 0}, {name: 'Getting Started', count: 0}, {name: 'Payments', count: 0}] }];
             return `
@@ -366,6 +492,7 @@
                     <main class="flex-1 flex flex-col overflow-hidden">
                         ${DashboardPageComponent()}
                         ${TicketsPageComponent()}
+                        ${AnalyticsPageComponent()}
                         ${KnowledgeBasePageComponent()}
                         ${AccountSettingsPageComponent()}
                         ${AboutPageComponent()}
@@ -387,7 +514,7 @@
                             <button onclick="showAdminView()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700">Admin Login</button>
                         </div>
                     </header>
-                    <div class="flex items-center justify-center h-screen">
+                    <div class="flex items-center justify-center h-screen py-16">
                         <div class="text-center">
                             <h1 class="text-4xl font-bold text-gray-800 mb-4">Welcome to HelpNest</h1>
                             <p class="text-lg text-gray-600 mb-8">Your one-stop support solution.</p>
@@ -400,9 +527,19 @@
                                         <div><label class="block text-gray-700 text-sm font-semibold mb-2">Email Address</label><input name="email" type="email" class="w-full px-4 py-2 border rounded-lg" required /></div>
                                     </div>
                                     <div class="mb-4"><label class="block text-gray-700 text-sm font-semibold mb-2">Subject</label><input name="subject" type="text" class="w-full px-4 py-2 border rounded-lg" required /></div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                                        <div>
+                                            <label class="block text-gray-700 text-sm font-semibold mb-2">Type of Problem</label>
+                                            <select name="problemType" class="w-full px-4 py-2 border rounded-lg bg-white" required><option value="" disabled selected>Select a category...</option><option>Technical Support</option><option>Billing Inquiry</option><option>Feature Request</option><option>General Question</option></select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-gray-700 text-sm font-semibold mb-2">Priority</label>
+                                            <select name="priority" class="w-full px-4 py-2 border rounded-lg bg-white" required><option>Low</option><option>Medium</option><option>High</option><option>Urgent</option></select>
+                                        </div>
+                                    </div>
                                     <div class="mb-4">
-                                        <label class="block text-gray-700 text-sm font-semibold mb-2">Type of Problem</label>
-                                        <select name="problemType" class="w-full px-4 py-2 border rounded-lg bg-white" required><option value="" disabled selected>Select a category...</option><option>Technical Support</option><option>Billing Inquiry</option><option>Feature Request</option><option>General Question</option></select>
+                                        <label class="block text-gray-700 text-sm font-semibold mb-2">Attachments</label>
+                                        <input type="file" name="attachment" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
                                     </div>
                                     <div class="mb-6"><label class="block text-gray-700 text-sm font-semibold mb-2">Message</label><textarea name="message" rows="5" class="w-full px-4 py-2 border rounded-lg" required></textarea></div>
                                     <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700">Submit Ticket</button>
@@ -462,16 +599,31 @@
         function navigateTo(pageId) {
             state.activePage = pageId;
             state.isEditingProfile = false; // Reset editing mode when navigating away
-            const dropdown = document.getElementById('profile-dropdown');
-            if (dropdown) {
-                dropdown.classList.add('hidden');
+            const profileDropdown = document.getElementById('profile-dropdown');
+            if (profileDropdown) {
+                profileDropdown.classList.add('hidden');
+            }
+            const newDropdown = document.getElementById('new-dropdown');
+            if (newDropdown) {
+                newDropdown.classList.add('hidden');
             }
             render();
+        }
+
+        function navigateToTicket(ticketId) {
+            state.selectedTicketId = ticketId;
+            navigateTo('tickets');
         }
         
         function selectTicket(ticketId) {
             state.selectedTicketId = ticketId;
-            navigateTo('tickets');
+            state.ticketView = 'details'; // On mobile, this will show the details pane
+            render();
+        }
+
+        function showTicketList() {
+            state.ticketView = 'list';
+            render();
         }
 
         function handleLogin() {
@@ -492,6 +644,7 @@
             event.preventDefault();
             const form = event.target;
             const formData = new FormData(form);
+            const attachment = formData.get('attachment');
             const newTicket = {
                 _id: `TICKET-${Date.now()}`,
                 name: formData.get('name'),
@@ -499,14 +652,26 @@
                 subject: formData.get('subject'),
                 message: formData.get('message'),
                 problemType: formData.get('problemType'),
+                priority: formData.get('priority'),
                 status: 'Open',
                 agentId: null,
                 createdAt: new Date().toISOString(),
+                internalNotes: [],
+                attachments: attachment && attachment.name ? [attachment.name] : []
             };
             // Add the new ticket to the start of the main tickets array
             state.tickets.unshift(newTicket);
             state.filteredTickets.unshift(newTicket);
             
+            // Create a notification
+            const notification = {
+                id: Date.now(),
+                message: `New ticket from ${newTicket.name}`,
+                ticketId: newTicket._id
+            };
+            state.notifications.unshift(notification);
+            state.unreadNotificationCount++;
+
             // Set feedback message
             state.feedback = { type: 'success', message: `Your ticket (${newTicket._id}) has been submitted successfully!` };
             
@@ -538,6 +703,26 @@
             }
         }
 
+        function toggleNewDropdown() {
+            const dropdown = document.getElementById('new-dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+            }
+        }
+
+        function toggleNotificationDropdown() {
+            const dropdown = document.getElementById('notification-dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+                if (!dropdown.classList.contains('hidden')) {
+                    // Mark notifications as read when dropdown is opened
+                    state.unreadNotificationCount = 0;
+                    const badge = document.getElementById('notification-badge');
+                    if (badge) badge.remove();
+                }
+            }
+        }
+
         function toggleEditProfile(isEditing) {
             state.isEditingProfile = isEditing;
             render();
@@ -557,6 +742,7 @@
         }
 
         function handleSearch(query) {
+            state.searchQuery = query;
             const lowerCaseQuery = query.toLowerCase();
             state.filteredTickets = state.tickets.filter(ticket => 
                 ticket.subject.toLowerCase().includes(lowerCaseQuery) ||
@@ -582,15 +768,55 @@
             }
         }
 
-        // Close dropdown if clicked outside
+        function handlePriorityChange(ticketId, newPriority) {
+            const ticket = state.tickets.find(t => t._id === ticketId);
+            if (ticket) {
+                ticket.priority = newPriority;
+                render();
+            }
+        }
+
+        function handleAddInternalNote(event, ticketId) {
+            event.preventDefault();
+            const form = event.target;
+            const noteText = form.internalNote.value;
+            if (!noteText) return;
+
+            const ticket = state.tickets.find(t => t._id === ticketId);
+            if (ticket) {
+                ticket.internalNotes.push({ author: state.adminUser.name, note: noteText });
+                form.reset();
+                render();
+            }
+        }
+
+        function handleInsertCannedResponse(index) {
+            if (index === "") return;
+            const response = state.cannedResponses[index];
+            const textarea = document.getElementById('reply-textarea');
+            if (textarea) {
+                textarea.value = response.text;
+            }
+        }
+
+        // Close dropdowns if clicked outside
         window.addEventListener('click', function(e) {
-            const profileButton = e.target.closest('.relative > button');
-            const dropdown = document.getElementById('profile-dropdown');
-            
-            if (dropdown && !dropdown.classList.contains('hidden') && !profileButton) {
-                if (!dropdown.contains(e.target)) {
-                    dropdown.classList.add('hidden');
-                }
+            const profileWrapper = document.getElementById('profile-button-wrapper');
+            const profileDropdown = document.getElementById('profile-dropdown');
+            if (profileDropdown && !profileWrapper?.contains(e.target)) {
+                profileDropdown.classList.add('hidden');
+            }
+
+            const newWrapper = document.getElementById('new-button-wrapper');
+            const newDropdown = document.getElementById('new-dropdown');
+            if (newDropdown && !newWrapper?.contains(e.target)) {
+                newDropdown.classList.add('hidden');
+            }
+
+            const notificationWrapper = document.getElementById('notification-button-wrapper');
+            const notificationDropdown = document.getElementById('notification-dropdown');
+            if (notificationDropdown && !notificationWrapper?.contains(e.target)) {
+                notificationDropdown.classList.add('hidden');
             }
         });
         
