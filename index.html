@@ -27,6 +27,12 @@
             border-color: #22c55e; /* green-500 */
             color: #15803d; /* green-700 */
         }
+        .feedback-banner.error {
+            display: block;
+            background-color: #fef2f2;
+            border-color: #fca5a5;
+            color: #b91c1c;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
@@ -38,36 +44,27 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        // --- MOCK DATA (Initial Data) ---
-        const initialData = {
-            agents: [
-              { id: 'agent-1', name: 'Alex Green' },
-              { id: 'agent-2', name: 'Brenda Blue' },
-              { id: 'agent-3', name: 'Charlie Brown' },
-              { id: 'agent-4', name: 'David White' },
-            ],
-            tickets: [
-              { _id: 'TICKET-1', name: 'John Doe', email: 'john.doe@example.com', subject: 'Login Issue', message: 'I cannot log into my account.', status: 'Open', priority: 'High', createdAt: '2025-07-08T10:00:00Z', problemType: 'Technical Support', agentId: 'agent-1', internalNotes: [{author: 'Alex Green', note: 'User seems to have forgotten their password multiple times. Sent a reset link.'}], attachments: ['login_error.png'] },
-              { _id: 'TICKET-2', name: 'Jane Smith', email: 'jane.smith@example.com', subject: 'Billing Question', message: 'I have a question about my last invoice.', status: 'Open', priority: 'Medium', createdAt: '2025-07-08T09:30:00Z', problemType: 'Billing Inquiry', agentId: null, internalNotes: [], attachments: [] },
-              { _id: 'TICKET-3', name: 'Peter Jones', email: 'peter.jones@example.com', subject: 'Feature Request', message: 'It would be great to have a dark mode.', status: 'On hold', priority: 'Low', createdAt: '2025-07-07T15:00:00Z', problemType: 'Feature Request', agentId: 'agent-2', internalNotes: [], attachments: [] },
-              { _id: 'TICKET-4', name: 'Maria Garcia', email: 'maria.g@example.com', subject: 'Cannot update profile', message: 'The save button is not working on my profile page.', status: 'Open', priority: 'High', createdAt: '2025-07-08T11:00:00Z', problemType: 'Technical Support', agentId: null, internalNotes: [], attachments: [] },
-            ]
-        };
+        const API_URL = 'http://localhost:5000'; // Your backend server URL
 
         // --- GLOBAL STATE ---
         let state = {
             isAuthenticated: false,
             isAdminView: false,
             activePage: 'dashboard',
-            agents: [...initialData.agents],
-            tickets: [...initialData.tickets],
-            filteredTickets: [...initialData.tickets],
-            selectedTicketId: initialData.tickets.length > 0 ? initialData.tickets[0]._id : null,
+            agents: [ // This can still be mock data for now
+              { id: 'agent-1', name: 'Alex Green' },
+              { id: 'agent-2', name: 'Brenda Blue' },
+              { id: 'agent-3', name: 'Charlie Brown' },
+              { id: 'agent-4', name: 'David White' },
+            ],
+            tickets: [], // This will be fetched from the backend
+            filteredTickets: [],
+            selectedTicketId: null,
             feedback: { type: '', message: '' }, // type can be 'success' or 'error'
-            adminUser: { name: 'Admin User', email: 'admin@example.com' }, // Added admin user state
-            isEditingProfile: false, // Added state for profile editing mode
-            ticketView: 'list', // 'list' or 'details' for mobile view
-            searchQuery: '', // To hold the search input value
+            adminUser: { name: 'Admin User', email: 'admin@example.com' },
+            isEditingProfile: false,
+            ticketView: 'list',
+            searchQuery: '',
             notifications: [],
             unreadNotificationCount: 0,
             cannedResponses: [
@@ -91,7 +88,7 @@
             Todo: () => `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`,
         };
 
-        // --- HTML TEMPLATE COMPONENTS (as functions returning template strings) ---
+        // --- HTML TEMPLATE COMPONENTS ---
         
         function SidebarComponent() {
             const navItems = [
@@ -717,8 +714,7 @@
                 if (!dropdown.classList.contains('hidden')) {
                     // Mark notifications as read when dropdown is opened
                     state.unreadNotificationCount = 0;
-                    const badge = document.getElementById('notification-badge');
-                    if (badge) badge.remove();
+                    render();
                 }
             }
         }
